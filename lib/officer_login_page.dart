@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
+<<<<<<< HEAD
 import 'officer_home_page.dart'; 
 import 'package:my_app/officer_home_page.dart';
 // Import the Officer Home Page
+=======
+import 'officer_home_page.dart'; // Import the Officer Home Page
+>>>>>>> 9081d97db00ea7a320a7948d7f50ac0702b4900b
 
 class OfficerLoginPage extends StatelessWidget {
   final Client client;
