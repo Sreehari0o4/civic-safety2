@@ -98,12 +98,12 @@ class _ReportStatusPageState extends State<ReportStatusPage> {
                           ],
                         ),
                         trailing: Icon(
-                          status == 'Verified'
+                          status == 'Approved'
                               ? Icons.check_circle
                               : status == 'Rejected'
                                   ? Icons.cancel
                                   : Icons.pending,
-                          color: status == 'Verified'
+                          color: status == 'Approved'
                               ? Colors.green
                               : status == 'Rejected'
                                   ? Colors.red
