@@ -24,18 +24,27 @@ class _ReportedViolationsPageState extends State<ReportedViolationsPage> {
     fetchViolations();
   }
 
-  // Fetch only "submitted" violations
+  // Fetch only "submitted" violations from users who are NOT blocked
   Future<void> fetchViolations() async {
     try {
       final response = await databases.listDocuments(
         databaseId: '67c34dcb001fb8f9397d', // Your Appwrite Database ID
-        collectionId: '67c34dea000d11566fcc', // Your Collection ID
+        collectionId: '67c34dea000d11566fcc', // Your Collection ID for violations
       );
 
+      List<Document> filteredViolations = [];
+
+      for (var doc in response.documents) {
+        if (doc.data['status'] == 'submitted') {
+          String userId = doc.data['user_id'] ?? '';
+          if (await _isUserNotBlocked(userId)) {
+            filteredViolations.add(doc);
+          }
+        }
+      }
+
       setState(() {
-        violations = response.documents
-            .where((doc) => doc.data['status'] == 'submitted')
-            .toList();
+        violations = filteredViolations;
         isLoading = false;
       });
     } catch (e) {
@@ -43,6 +52,23 @@ class _ReportedViolationsPageState extends State<ReportedViolationsPage> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  // Check if the user is NOT blocked
+  Future<bool> _isUserNotBlocked(String userId) async {
+    if (userId.isEmpty) return false;
+
+    try {
+      final userDoc = await databases.getDocument(
+        databaseId: '67c34dcb001fb8f9397d', // Your Appwrite Database ID
+        collectionId: '67e808ac003001212055', // Your Collection ID for users
+        documentId: userId,
+      );
+      return userDoc.data['blocked'] == false; // Ensure user is not blocked
+    } catch (e) {
+      print('Error fetching user data for ID $userId: $e');
+      return false;
     }
   }
 
