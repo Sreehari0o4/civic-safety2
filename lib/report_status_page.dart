@@ -98,16 +98,6 @@ class _ReportStatusPageState extends State<ReportStatusPage> {
                           ],
                         ),
                         trailing: Icon(
-<<<<<<< HEAD
-                          status == 'Approved'
-                              ? Icons.check_circle
-                              : status == 'Cancelled'
-                                  ? Icons.cancel
-                                  : Icons.pending,
-                          color: status == 'Approved'
-                              ? Colors.green
-                              : status == 'Cancelled'
-=======
                           status == 'Verified'
                               ? Icons.check_circle
                               : status == 'Rejected'
@@ -116,7 +106,6 @@ class _ReportStatusPageState extends State<ReportStatusPage> {
                           color: status == 'Verified'
                               ? Colors.green
                               : status == 'Rejected'
->>>>>>> 9081d97db00ea7a320a7948d7f50ac0702b4900b
                                   ? Colors.red
                                   : Colors.orange,
                         ),

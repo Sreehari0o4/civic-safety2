@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
-<<<<<<< HEAD
 import 'reported_violations_page.dart'; // Ensure this file exists
-=======
->>>>>>> 9081d97db00ea7a320a7948d7f50ac0702b4900b
 
 class OfficerHomePage extends StatelessWidget {
   final Client client;
@@ -17,7 +14,6 @@ class OfficerHomePage extends StatelessWidget {
         title: Text('Officer Home'),
       ),
       body: Center(
-<<<<<<< HEAD
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -39,17 +35,8 @@ class OfficerHomePage extends StatelessWidget {
               child: Text('View Violations'),
             ),
           ],
-=======
-        child: Text(
-          'Welcome, Officer!',
-          style: TextStyle(fontSize: 24),
->>>>>>> 9081d97db00ea7a320a7948d7f50ac0702b4900b
         ),
       ),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 9081d97db00ea7a320a7948d7f50ac0702b4900b
