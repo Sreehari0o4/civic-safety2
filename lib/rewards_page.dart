@@ -47,6 +47,55 @@ class _RewardsPageState extends State<RewardsPage> {
     }
   }
 
+  // Collect Reward Function
+  Future<void> _collectReward() async {
+    if (totalEarnings < 1000) { // Minimum withdrawal ₹10
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Minimum withdrawal amount is ₹10")),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Confirm Withdrawal"),
+          content: Text("Do you want to collect ₹${(totalEarnings / 100).toStringAsFixed(2)}?"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel")),
+            TextButton(
+              onPressed: () async {
+                try {
+                  // Reset user rewards to 0 after withdrawal
+                  await databases.updateDocument(
+                    databaseId: '67c34dcb001fb8f9397d',
+                    collectionId: '67e808ac003001212055', // Users collection
+                    documentId: widget.userId,
+                    data: {"reward": 0},
+                  );
+
+                  setState(() => totalEarnings = 0); // Update UI
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("₹${(totalEarnings / 100).toStringAsFixed(2)} collected successfully!")),
+                  );
+
+                  Navigator.pop(context); // Close the dialog
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Failed to collect reward: $e")),
+                  );
+                }
+              },
+              child: Text("Collect"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,6 +134,15 @@ class _RewardsPageState extends State<RewardsPage> {
                         ElevatedButton(
                           onPressed: _fetchRewards,
                           child: Text("Refresh"),
+                        ),
+                        SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: _collectReward,
+                          child: Text("Collect Reward"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
                       ],
                     ),
