@@ -134,16 +134,42 @@ class _ReportViolationPageState extends State<ReportViolationPage> {
   }
 
   Future<void> _submitReport() async {
-    if (_userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('User not logged in!')));
+    // Check if all required fields are filled
+    if (_imageBytes == null && _imageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please upload an image.')));
       return;
     }
 
+    if (_vehicleNoController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter the vehicle number.')));
+      return;
+    }
+
+    if (_selectedViolationType == null || _selectedViolationType!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select a violation type.')));
+      return;
+    }
+
+    if (_selectedViolationType == 'Other' && _otherViolationController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please specify the other violation type.')));
+      return;
+    }
+
+    if (_locationController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter the location.')));
+      return;
+    }
+
+    // Upload the image
     await _uploadImage();
 
-    String violationType = _selectedViolationType == "Other" ? _otherViolationController.text : _selectedViolationType ?? "";
+    // Determine the violation type
+    String violationType = _selectedViolationType == "Other"
+        ? _otherViolationController.text
+        : _selectedViolationType ?? "";
 
     try {
+      // Submit the report
       await _database.createDocument(
         databaseId: '67c34dcb001fb8f9397d',
         collectionId: '67c34dea000d11566fcc',
@@ -223,6 +249,12 @@ class _ReportViolationPageState extends State<ReportViolationPage> {
                 },
                 decoration: InputDecoration(labelText: 'Violation Type*'),
               ),
+              // Show the "Other Violation" text field if "Other" is selected
+              if (_selectedViolationType == 'Other')
+                TextField(
+                  controller: _otherViolationController,
+                  decoration: InputDecoration(labelText: 'Specify Other Violation*'),
+                ),
               TextField(controller: _locationController, decoration: InputDecoration(labelText: 'Location*')),
               TextField(controller: _dateController, decoration: InputDecoration(labelText: 'Date'), readOnly: true),
               TextField(controller: _timeController, decoration: InputDecoration(labelText: 'Time'), readOnly: true),
