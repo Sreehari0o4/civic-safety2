@@ -16,6 +16,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String username = 'Username'; // Default username
+  String userId = ''; // Store user ID
   bool isLoading = true; // To show loading state
 
   @override
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
       final user = await account.get();
       setState(() {
         username = user.name; // Assuming the user's name is stored in the 'name' field
+        userId = user.$id; // Store the user ID
         isLoading = false;
       });
     } catch (e) {
@@ -60,13 +62,12 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color.fromARGB(255, 0, 0, 0), // Set bottom navigation bar color to black
+        backgroundColor: Colors.black, // Set bottom navigation bar color to black
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.white54,
         onTap: (index) {
           if (index == 3) {
-            // Logout button pressed
-            _logout();
+            _logout(); // Logout when the last item is tapped
           }
         },
         items: const [
@@ -214,7 +215,10 @@ class _HomePageState extends State<HomePage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => RewardsPage(client: widget.client),
+                                  builder: (context) => RewardsPage(
+                                    client: widget.client,
+                                    userId: userId, // Pass userId correctly
+                                  ),
                                 ),
                               );
                             },

@@ -1,41 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
+import 'package:appwrite/models.dart';
 
 class RewardsPage extends StatefulWidget {
   final Client client;
+  final String userId; // Current logged-in user's ID
 
-  RewardsPage({required this.client});
+  RewardsPage({required this.client, required this.userId});
 
   @override
   _RewardsPageState createState() => _RewardsPageState();
 }
 
 class _RewardsPageState extends State<RewardsPage> {
-  List<Map<String, dynamic>> rewards = [];
+  late Databases databases;
+  int totalEarnings = 0;
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    databases = Databases(widget.client);
     _fetchRewards();
   }
 
+  // Fetch User's Total Reward Amount
   Future<void> _fetchRewards() async {
-    final databases = Databases(widget.client);
+    setState(() => isLoading = true);
 
     try {
-      final response = await databases.listDocuments(
-        databaseId: 'rewards_db', // Your database ID
-        collectionId: 'rewards', // Your collection ID
+      final userDoc = await databases.getDocument(
+        databaseId: '67c34dcb001fb8f9397d', // Main database ID
+        collectionId: '67e808ac003001212055', // Users collection
+        documentId: widget.userId, // Get reward data for logged-in user
       );
+
       setState(() {
-        rewards = response.documents.map((doc) => doc.data).toList();
+        totalEarnings = userDoc.data['reward'] ?? 0; // Ensure reward is an int
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to fetch rewards: $e')),
       );
@@ -44,45 +49,48 @@ class _RewardsPageState extends State<RewardsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalEarnings = rewards.fold(0, (sum, reward) {
-      return sum + (reward['amount'] as int? ?? 0); // Ensure amount is treated as int
-    });
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Rewards'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _fetchRewards, // Refresh reward data
+          ),
+        ],
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'Total Earnings: ₹$totalEarnings',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Card(
+                  elevation: 5,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Total Earnings',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[700]),
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          '₹${(totalEarnings / 100).toStringAsFixed(2)}', // Convert paise to rupees
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.green),
+                        ),
+                        SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _fetchRewards,
+                          child: Text("Refresh"),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: rewards.length,
-                    itemBuilder: (context, index) {
-                      final reward = rewards[index];
-                      return Card(
-                        margin: EdgeInsets.all(8.0),
-                        child: ListTile(
-                          title: Text('Amount: ₹${reward['amount'] ?? '0'}'),
-                          subtitle: Text('Date: ${reward['date'] ?? 'No Date'}'),
-                          trailing: Icon(Icons.currency_rupee, color: Colors.green),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
     );
   }

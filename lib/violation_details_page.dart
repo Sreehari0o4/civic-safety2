@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:appwrite/appwrite.dart';
 import 'package:appwrite/models.dart';
@@ -14,40 +16,174 @@ class ViolationDetailsPage extends StatefulWidget {
 
 class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
   late Databases databases;
+  late Storage storage;
   Map<String, dynamic>? userDetails;
+  String? imageUrl;
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
     databases = Databases(widget.client);
-    _fetchUserDetails();
+    storage = Storage(widget.client);
+    _fetchDetails();
   }
 
-  // Fetch user details from 'users' collection
-  Future<void> _fetchUserDetails() async {
+  // Fetch user details and image URL
+  Future<void> _fetchDetails() async {
     String userId = widget.violation.data['user_id'] ?? '';
-    if (userId.isNotEmpty) {
-      try {
+    String imageId = widget.violation.data['image_id'] ?? '';
+
+    try {
+      // Fetch user details
+      if (userId.isNotEmpty) {
         final userDoc = await databases.getDocument(
           databaseId: '67c34dcb001fb8f9397d',
           collectionId: '67e808ac003001212055', // Users collection
           documentId: userId,
         );
-        setState(() {
-          userDetails = userDoc.data;
-          isLoading = false;
-        });
-      } catch (e) {
-        print("Error fetching user details: $e");
-        setState(() => isLoading = false);
+        setState(() => userDetails = userDoc.data);
       }
+
+      // Fetch image URL using `image_id`
+      if (imageId.isNotEmpty) {
+        print("Fetching image with ID: $imageId");
+        final endpoint = widget.client.endPoint; // Appwrite endpoint
+        final projectId = widget.client.config['project']; // Appwrite project ID
+        final bucketId = '67c3ece6001c2b68828b'; // Your bucket ID
+
+        // Construct the image URL manually
+        final fileViewUrl = '$endpoint/storage/buckets/$bucketId/files/$imageId/view?project=$projectId';
+        print("Constructed Image URL: $fileViewUrl");
+
+        setState(() => imageUrl = fileViewUrl);
+      } else {
+        print("No image ID found in violation data.");
+      }
+    } catch (e) {
+      print("Error fetching details: $e");
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
-  // Approve Violation with Fine
-  Future<void> approveViolation(String documentId) async {
+  @override
+  Widget build(BuildContext context) {
+    final violation = widget.violation;
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Violation Details')),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Violation Type: ${violation.data['violation_type'] ?? 'N/A'}",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Location: ${violation.data['location'] ?? 'Unknown'}",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Date: ${violation.data['date'] ?? 'Unknown'}",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Time: ${violation.data['time'] ?? 'Unknown'}", // Added time field
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  SizedBox(height: 16),
+
+                  // Show Violation Image
+                  imageUrl != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            imageUrl!,
+                            width: double.infinity,
+                            height: 250,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          (loadingProgress.expectedTotalBytes ?? 1)
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Text(
+                                  'Error loading image',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      : Text("No image available", style: TextStyle(color: Colors.grey)),
+
+                  SizedBox(height: 20),
+
+                  // User Details Section
+                  userDetails != null
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Submitted by:",
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            Text("Name: ${userDetails!['name'] ?? 'Unknown'}"),
+                            Text("Phone: ${userDetails!['phone'] ?? 'Unknown'}"),
+                            Text("Email: ${userDetails!['email'] ?? 'Unknown'}"),
+                            SizedBox(height: 16),
+                          ],
+                        )
+                      : Text("User details not found"),
+
+                  SizedBox(height: 20),
+
+                  // Action Buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => approveViolation(violation.$id, violation.data['user_id']),
+                        child: Text("Approve"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => rejectViolation(violation.$id),
+                        child: Text("Reject"),
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () => blockUser(violation.data['user_id']),
+                    child: Text("Block User"),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  // Approve Violation
+  Future<void> approveViolation(String documentId, String userId) async {
     TextEditingController fineController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) {
@@ -64,7 +200,9 @@ class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
               onPressed: () async {
                 if (fineController.text.isNotEmpty) {
                   try {
-                    double fineAmount = double.tryParse(fineController.text) ?? 0.0;
+                    int fineAmount = (double.parse(fineController.text) * 100).toInt();
+                    int rewardAmount = (fineAmount * 0.1).toInt(); // 10% reward
+
                     await databases.updateDocument(
                       databaseId: '67c34dcb001fb8f9397d',
                       collectionId: '67c34dea000d11566fcc',
@@ -72,7 +210,23 @@ class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
                       data: {"status": "Approved", "amount": fineAmount},
                     );
 
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Violation Approved')));
+                    final userDoc = await databases.getDocument(
+                      databaseId: '67c34dcb001fb8f9397d',
+                      collectionId: '67e808ac003001212055',
+                      documentId: userId,
+                    );
+                    int currentReward = userDoc.data['reward'] ?? 0;
+
+                    await databases.updateDocument(
+                      databaseId: '67c34dcb001fb8f9397d',
+                      collectionId: '67e808ac003001212055',
+                      documentId: userId,
+                      data: {"reward": currentReward + rewardAmount},
+                    );
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Violation Approved & ₹${rewardAmount / 100} reward added')),
+                    );
                     Navigator.pop(context);
                     Navigator.pop(context);
                   } catch (e) {
@@ -121,7 +275,7 @@ class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
     );
   }
 
-  // Block User and Cancel All Their Violations
+  // Block User
   Future<void> blockUser(String userId) async {
     showDialog(
       context: context,
@@ -134,18 +288,18 @@ class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
             TextButton(
               onPressed: () async {
                 try {
-                  // Step 1: Block the User
+                  // Block the user
                   await databases.updateDocument(
                     databaseId: '67c34dcb001fb8f9397d',
-                    collectionId: '67e808ac003001212055', // Users collection
+                    collectionId: '67e808ac003001212055',
                     documentId: userId,
                     data: {"blocked": true},
                   );
 
-                  // Step 2: Cancel all their submitted violations
+                  // Cancel all submitted violations
                   final violationsResponse = await databases.listDocuments(
                     databaseId: '67c34dcb001fb8f9397d',
-                    collectionId: '67c34dea000d11566fcc', // Violations collection
+                    collectionId: '67c34dea000d11566fcc',
                     queries: [Query.equal("user_id", userId), Query.equal("status", "submitted")],
                   );
 
@@ -162,7 +316,7 @@ class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
                     SnackBar(content: Text('User Blocked & Violations Cancelled')),
                   );
 
-                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context);
                 } catch (e) {
                   print('Error blocking user or cancelling violations: $e');
                 }
@@ -174,71 +328,8 @@ class _ViolationDetailsPageState extends State<ViolationDetailsPage> {
       },
     );
   }
+}
 
-  @override
-  Widget build(BuildContext context) {
-    final violation = widget.violation;
-
-    return Scaffold(
-      appBar: AppBar(title: Text('Violation Details')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: isLoading
-            ? Center(child: CircularProgressIndicator())
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Violation Type: ${violation.data['violation_type'] ?? 'N/A'}",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-
-                  // User Details Section
-                  userDetails != null
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Submitted by:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text("Name: ${userDetails!['name'] ?? 'Unknown'}"),
-                            Text("Phone: ${userDetails!['phone'] ?? 'Unknown'}"),
-                            Text("Email: ${userDetails!['email'] ?? 'Unknown'}"),
-                            SizedBox(height: 16),
-                          ],
-                        )
-                      : Text("User details not found"),
-
-                  Text("Vehicle No: ${violation.data['vehicle_no'] ?? 'N/A'}"),
-                  Text("Location: ${violation.data['location'] ?? 'N/A'}"),
-                  Text("Date: ${violation.data['date'] ?? 'N/A'}"),
-                  Text("Time: ${violation.data['time'] ?? 'N/A'}"),
-                  Text("Comment: ${violation.data['comment'] ?? 'No Comment'}"),
-                  SizedBox(height: 16),
-                  Text("Status: ${violation.data['status'] ?? 'Pending'}",
-                      style: TextStyle(fontSize: 16, color: Colors.blue)),
-                  SizedBox(height: 16),
-
-                  // Display Image if available
-                  violation.data['image_id'] != null
-                      ? Image.network(
-                          "https://cloud.appwrite.io/v1/storage/buckets/67c3ece6001c2b68828b/files/${violation.data['image_id']}/preview?project=67c345160023bc7bcb88",
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover,
-                        )
-                      : Text("No Image Available"),
-
-                  SizedBox(height: 20),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(onPressed: () => approveViolation(violation.$id), child: Text("Approve")),
-                      ElevatedButton(onPressed: () => rejectViolation(violation.$id), child: Text("Reject")),
-                    ],
-                  ),
-                  ElevatedButton(onPressed: () => blockUser(violation.data['user_id']), child: Text("Block User")),
-                ],
-              ),
-      ),
-    );
-  }
+extension on Future<Uint8List> {
+  String? get href => null;
 }
